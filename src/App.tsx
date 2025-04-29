@@ -1,35 +1,329 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import './App.css'; // We'll add some basic styles here
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+// Define interfaces for the data structure
+interface ConversationPart {
+  text: string;
 }
 
-export default App
+interface ConversationTurn {
+  role: string; // "user" or "model"
+  parts: ConversationPart[];
+}
+
+interface SessionRequest {
+  sessionId: string | null;
+  directoryPath: string | null;
+  currentPrompt: string;
+}
+
+interface SessionResponse {
+  sessionId: string;
+  modelResponse: string;
+  fullConversationHistory: ConversationTurn[]; // Now included in the response
+}
+
+// Interface for storing conversation list in localStorage
+interface StoredConversation {
+  id: string;
+  title: string; // A simple title for the conversation
+}
+
+const App: React.FC = () => {
+  // State variables
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null); // ID of the active conversation
+  const [directoryPath, setDirectoryPath] = useState<string>('');
+  const [currentPrompt, setCurrentPrompt] = useState<string>('');
+  const [historyDisplay, setHistoryDisplay] = useState<ConversationTurn[]>([]); // History for the *currently loaded* conversation
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // State for the list of all conversations in the side panel
+  const [conversations, setConversations] = useState<StoredConversation[]>([]);
+
+  // URL of your local Azure Function endpoint
+  const functionUrl = 'http://localhost:7092/api/FileReader'; // <<< Make sure this matches
+
+  // --- useEffect to load conversations from localStorage on component mount ---
+  useEffect(() => {
+    const storedConversations = localStorage.getItem('geminiConversations');
+    if (storedConversations) {
+      try {
+        const parsedConversations: StoredConversation[] = JSON.parse(storedConversations);
+         // Basic validation of loaded data structure
+        if (Array.isArray(parsedConversations) && parsedConversations.every(c => typeof c.id === 'string' && typeof c.title === 'string')) {
+           setConversations(parsedConversations);
+        } else {
+           console.error('Invalid data found in localStorage for geminiConversations');
+           // Optionally clear invalid data
+           // localStorage.removeItem('geminiConversations');
+        }
+      } catch (e) {
+        console.error('Failed to parse conversations from localStorage:', e);
+        // Optionally clear invalid data
+        // localStorage.removeItem('geminiConversations');
+      }
+    }
+  }, []); // Empty dependency array means this runs only once on mount
+
+
+  // --- useEffect to save conversations to localStorage whenever the list changes ---
+  useEffect(() => {
+    try {
+      localStorage.setItem('geminiConversations', JSON.stringify(conversations));
+    } catch (e) {
+      console.error('Failed to save conversations to localStorage:', e);
+    }
+  }, [conversations]); // Dependency array ensures this runs whenever 'conversations' state changes
+
+
+  // --- Function to handle sending prompt to backend ---
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!currentPrompt.trim() && !directoryPath.trim() && historyDisplay.length === 0) {
+       // If no prompt, no directory, AND no existing history, require prompt/directory
+      setError('Please provide a prompt and/or a directory path to start or continue.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    const requestBody: SessionRequest = {
+      sessionId: currentSessionId, // Use the current active session ID
+      directoryPath: directoryPath.trim() === '' ? null : directoryPath.trim(), // Send null if input is empty
+      currentPrompt: currentPrompt.trim(),
+    };
+
+    try {
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text(); // Get error as text
+        throw new Error(`API Error ${response.status}: ${errorData}`);
+      }
+
+      const responseData: SessionResponse = await response.json();
+
+      // Update state
+      const newSessionId = responseData.sessionId;
+      const updatedHistory = responseData.fullConversationHistory; // Get the full updated history
+
+      setCurrentSessionId(newSessionId); // Set or update the active session ID
+      setHistoryDisplay(updatedHistory); // Display the full conversation history
+      
+
+      // --- Update conversation list in side panel ---
+      setConversations(prevConversations => {
+        // Check if this session ID already exists in the list
+        const existingConversationIndex = prevConversations.findIndex(conv => conv.id === newSessionId);
+
+        if (existingConversationIndex === -1) {
+          // If it's a new session, add it to the list
+          // Try to generate a simple title from the first user prompt
+          const firstUserTurn = updatedHistory.find(turn => turn.role === 'user');
+          const title = firstUserTurn?.parts?.[0]?.text.substring(0, 50) + '...' || 'New Chat';
+          const newConversation: StoredConversation = { id: newSessionId, title: title };
+          return [...prevConversations, newConversation]; // Add to the end
+        } else {
+          // If it's an existing session, potentially update its title
+          // (Optional, could update title based on first prompt or just leave it)
+           const firstUserTurn = updatedHistory.find(turn => turn.role === 'user');
+           const newTitle = firstUserTurn?.parts?.[0]?.text.substring(0, 50) + '...' || prevConversations[existingConversationIndex].title;
+
+           const updatedConversations = [...prevConversations];
+           updatedConversations[existingConversationIndex] = { ...updatedConversations[existingConversationIndex], title: newTitle };
+           return updatedConversations;
+        }
+      });
+
+      // Clear input fields after sending
+      //setDirectoryPath('');
+      setCurrentPrompt('');
+
+    } catch (err: any) {
+      console.error('Error calling function:', err);
+      setError(err.message || 'An unknown error occurred.');
+      setIsLoading(false); // Ensure loading state is cleared on error
+    } finally {
+      // If error occurred, finally block runs, but we clear loading in catch too.
+      // If successful, loading is cleared here.
+       setIsLoading(false);
+    }
+  };
+
+  // --- Function to handle clicking a conversation in the side panel ---
+  const handleLoadConversation = async (sessionIdToLoad: string) => {
+     if (isLoading || currentSessionId === sessionIdToLoad) return; // Don't load if busy or already active
+
+     setIsLoading(true);
+     setError(null);
+     
+
+     // To load a conversation's history, we need to make a request to the backend.
+     // The backend's current logic expects a prompt, even if just to return history.
+     // A more ideal backend might have a separate endpoint like GET /api/history/{sessionId}
+     // But with the current POST endpoint, we send an empty prompt.
+     const requestBody: SessionRequest = {
+       sessionId: sessionIdToLoad,
+       directoryPath: null, // Don't re-process directory on load
+       currentPrompt: '', // Send an empty prompt to trigger history load/return
+     };
+
+     try {
+        const response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(`API Error ${response.status}: ${errorData}`);
+        }
+
+        const responseData: SessionResponse = await response.json();
+
+        // Set the loaded session as the current one
+        setCurrentSessionId(responseData.sessionId);
+        // Display the loaded history
+        setHistoryDisplay(responseData.fullConversationHistory);
+        // Clear prompt/directory inputs when loading a new conversation
+        setDirectoryPath('');
+        setCurrentPrompt('');
+        
+
+        //log.logInformation(`Loaded conversation: ${responseData.sessionId}`); // This log won't show in browser console directly, but good practice
+
+     } catch (err: any) {
+        console.error('Error loading conversation:', err);
+        setError(`Failed to load conversation: ${err.message || 'Unknown error'}`);
+     } finally {
+        setIsLoading(false);
+     }
+  };
+
+
+  // --- Function to start a brand new conversation ---
+  const handleNewConversation = () => {
+     if (isLoading) return;
+     setCurrentSessionId(null); // Set session ID to null to signal a new conversation on next submit
+     setHistoryDisplay([]); // Clear the displayed history
+     setDirectoryPath(''); // Clear directory path
+     setCurrentPrompt(''); // Clear prompt
+     
+     setError(null); // Clear any errors
+     console.log('Ready to start a new conversation.');
+  };
+
+
+  // --- Basic CSS for layout (create App.css) ---
+  // This is just a simple example. More robust CSS frameworks are recommended for real apps.
+
+
+  return (
+    <div className="app-container">
+      <div className="sidebar">
+        <h2>Conversations</h2>
+        <button onClick={handleNewConversation} disabled={isLoading} className="new-chat-button">+ New Chat</button>
+        <ul className="conversation-list">
+          {conversations.map(conv => (
+            <li
+              key={conv.id}
+              className={`conversation-item ${conv.id === currentSessionId ? 'active' : ''}`}
+              onClick={() => handleLoadConversation(conv.id)}
+            >
+              {conv.title || 'Untitled Chat'}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="main-content">
+        <h1>Gemini Directory Processor</h1>
+         <p>Interact with your local Azure Function to process files in a directory using Gemini.</p>
+        <p style={{ color: 'red' }}><strong>Security Warning:</strong> File system access from a web request is highly insecure for production. This is for local testing only.</p>
+
+        <form onSubmit={handleSubmit} className="input-form">
+           {/* Session ID input is now hidden */}
+          <div style={{display: 'none'}}>
+             <label htmlFor="sessionId">Session ID:</label>
+             <input
+               id="sessionId"
+               type="text"
+               value={currentSessionId || ''}
+               readOnly // Make it read-only as user doesn't input it directly
+             />
+           </div>
+
+          <div>
+            <label htmlFor="directoryPath">Directory Path (Optional for subsequent prompts):</label>
+            <input
+              id="directoryPath"
+              type="text"
+              value={directoryPath}
+              onChange={(e) => setDirectoryPath(e.target.value)}
+              disabled={isLoading}
+              placeholder="e.g., C:\Users\YourName\Documents\MyDocs"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="currentPrompt">Your Prompt:</label>
+            <textarea
+              id="currentPrompt"
+              value={currentPrompt}
+              onChange={(e) => setCurrentPrompt(e.target.value)}
+              disabled={isLoading}
+              rows={4}
+              placeholder={historyDisplay.length > 0 ? "Continue the conversation..." : "Enter your prompt here..."}
+            ></textarea>
+          </div>
+
+          <button type="submit" disabled={isLoading || (!currentPrompt.trim() && !directoryPath.trim() && historyDisplay.length === 0)}>
+            {isLoading ? 'Processing...' : 'Send to Gemini'}
+          </button>
+        </form>
+
+        {/* Display loading state */}
+        {isLoading && (
+          <div style={{ color: 'blue', marginBottom: '15px' }}>Loading...</div>
+        )}
+
+        {/* Display error message */}
+        {error && (
+          <div className="error-message">
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+
+        {/* Display conversation history */}
+        <div className="conversation-history">
+          <h2>Conversation History</h2>
+           {historyDisplay.length === 0 && !isLoading && !error && (
+              <p>Start a new conversation or select one from the sidebar.</p>
+           )}
+          {historyDisplay.map((turn, index) => (
+            <div key={index} className={`conversation-turn ${turn.role}`}>
+              <strong>{turn.role === 'user' ? 'You' : 'Gemini'}:</strong>
+              {/* Display parts - assuming text parts */}
+              {turn.parts.map((part, partIndex) => (
+                  <p key={partIndex}>{part.text}</p>
+              ))}
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default App;

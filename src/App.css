@@ -12,6 +12,7 @@
   border-right: 1px solid #ccc;
   display: flex;
   flex-direction: column; /* Stack items vertically */
+  flex-shrink: 0;
 }
 
 .sidebar h2 {

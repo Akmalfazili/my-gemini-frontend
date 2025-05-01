@@ -306,19 +306,48 @@ const App: React.FC = () => {
 
         {/* Display conversation history */}
         <div className="conversation-history">
-          <h2>Conversation History</h2>
-           {historyDisplay.length === 0 && !isLoading && !error && (
-              <p>Start a new conversation or select one from the sidebar.</p>
-           )}
-          {historyDisplay.map((turn, index) => (
-            <div key={index} className={`conversation-turn ${turn.role}`}>
-              <strong>{turn.role === 'user' ? 'You' : 'Gemini'}:</strong>
-              {/* Display parts - assuming text parts */}
-              {turn.parts.map((part, partIndex) => (
-                  <p key={partIndex}>{part.text}</p>
-              ))}
-            </div>
-          ))}
+        <h2>Conversation History</h2>
+   {historyDisplay.length === 0 && !isLoading && !error && (
+      <p>Start a new conversation by entering a prompt and/or directory path, or select one from the sidebar.</p>
+   )}
+  {historyDisplay.map((turn, index) => (
+    <div key={index} className={`conversation-turn ${turn.role}`}>
+      <strong>{turn.role === 'user' ? 'You' : 'Gemini'}:</strong>
+      {/* Display parts based on their index and content */}
+      {turn.parts.map((part, partIndex) => {
+          // If this is a user turn AND it's the first part (index 0)...
+          if (turn.role === 'user' && partIndex === 0) {
+               // This part should contain the combined file content (assuming backend structure)
+               // Check if it actually looks like the file content part (starts with the directory prefix or file marker)
+               if (part.text.trim().startsWith('Regarding the content of the files in the directory') ||
+                   part.text.trim().startsWith('--- Start File:'))
+               {
+                   // Try to extract the directory name from the specific prefix added in the backend
+                   const dirPrefixMatch = part.text.match(/^Regarding the content of the files in the directory '(.*?)':/);
+                   const dirName = dirPrefixMatch ? dirPrefixMatch[1] : 'directory'; // Use extracted name or fallback
+
+                   // Render a concise indicator for the file content part
+                   return (
+                       <p key={partIndex} style={{ fontStyle: 'italic', color: '#555' }}>
+                           [Content from files in directory '{dirName}' - {part.text.length} characters included]
+                       </p>
+                   );
+               } else {
+                  // If it's the first part but doesn't look like file content, render it normally
+                  return (
+                       <p key={partIndex}>{part.text}</p>
+                   );
+               }
+          } else {
+              // If it's NOT the first part of a user turn, or it's a model turn
+              // This part should contain the user's actual typed prompt or model's response
+              return (
+                  <p key={partIndex}>{part.text}</p> // Render the text normally
+              );
+          }
+      })}
+    </div>
+  ))}
         </div>
 
       </div>

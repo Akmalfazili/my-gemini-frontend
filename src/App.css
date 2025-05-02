@@ -1,3 +1,8 @@
+body{
+  margin:0;
+  padding:0;
+  overflow: hidden;
+}
 /* Basic layout using Flexbox */
 .app-container {
   display: flex;
@@ -69,71 +74,133 @@
 
 .main-content {
   flex-grow: 1; /* Takes up remaining space */
-  padding: 20px;
-  overflow-y: auto; /* Enable scrolling for main content */
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
 }
 
-.main-content h1 {
-    margin-top: 0;
+.main-content h1,
+.main-content p:not(.error-message):not(.conversation-history p):not(.bottom-input-area p) {
+    margin-bottom: 10px;
+    padding-top: 10px;
 }
 
 .input-form {
-  display: grid;
-  gap: 15px;
-  margin-bottom: 20px;
-  border: 1px solid #ccc;
-  padding: 15px;
-  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap:12px;
+}
+
+.chat-input-wrapper{
+  background-color: #2b2b2b;
+  border-radius: 24px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.directory-input,.prompt-input{
+  background: transparent;
+  border:none;
+  color:white;
+  font-size:15px;
+  outline:none;
+  width: 100%;
+  resize: none;
+}
+
+.prompt-input{
+  flex:1;
+  min-height: 60px;
+  padding-right: 48px; /* space for the button */
+}
+
+.directory-input::placeholder,
+.prompt-input::placeholder {
+  color: #aaa;
 }
 
 .input-form label {
     display: block;
     margin-bottom: 5px;
     font-weight: bold;
+    font-size: 0.9em;
 }
 
 .input-form input[type="text"],
 .input-form textarea {
     width: 100%;
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box; /* Include padding in width */
-}
-
-.input-form button {
-    padding: 10px 15px;
-    background-color: #28a745;
-    color: white;
+    padding: 12px 18px;
     border: none;
-    border-radius: 4px;
-    cursor: pointer;
+    border-radius: 20px;
+    box-sizing: border-box; /* Include padding in width */
     font-size: 1em;
+    resize: none;
+    outline:none;
 }
 
-.input-form button:disabled {
-    background-color: #90ee90;
-    cursor: not-allowed;
+.textarea-button-container{
+  display: flex;
+  align-items: flex-end;
+  position:relative;
+}
+.send-button {
+  position: absolute;
+  right: 8px;
+  bottom:8px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
 }
 
-.input-form button:hover:not(:disabled) {
-    background-color: #218838;
+.send-button:hover:enabled{
+  background-color: #2563eb;
 }
+
+.send-button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
 
 .error-message {
   color: red;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   border: 1px solid red;
-  padding: 10px;
+  padding: 8px;
   border-radius: 4px;
   background-color: #ffebeb;
+  font-size: 0.9em;
 }
 
 .conversation-history {
-    margin-top: 20px;
-    border-top: 1px solid #ccc;
-    padding-top: 20px;
+    overflow-y: auto;
+    flex-grow: 1;
+    min-height: 0;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    padding-top:10px;
 }
+
+.bottom-input-area{
+  padding: 20x;
+  border-top: 1px solid #333;
+  background-color: #1e1e1e;
+  color:white;
+}
+
 
 .conversation-history h2 {
     font-size: 1.1em;

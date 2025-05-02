@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import './App.css'; // We'll add some basic styles here
+import './App.css'; 
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // Define interfaces for the data structure
 interface ConversationPart {
@@ -42,7 +44,7 @@ const App: React.FC = () => {
   const [conversations, setConversations] = useState<StoredConversation[]>([]);
 
   // URL of your local Azure Function endpoint
-  const functionUrl = 'http://localhost:7092/api/FileReader'; // <<< Make sure this matches
+  const functionUrl = 'http://localhost:7092/api/FileReader'; 
 
   // --- useEffect to load conversations from localStorage on component mount ---
   useEffect(() => {
@@ -248,61 +250,7 @@ const App: React.FC = () => {
 
       <div className="main-content">
         <h1>Gemini Directory Processor</h1>
-         <p>Interact with your local Azure Function to process files in a directory using Gemini.</p>
         <p style={{ color: 'red' }}><strong>Security Warning:</strong> File system access from a web request is highly insecure for production. This is for local testing only.</p>
-
-        <form onSubmit={handleSubmit} className="input-form">
-           {/* Session ID input is now hidden */}
-          <div style={{display: 'none'}}>
-             <label htmlFor="sessionId">Session ID:</label>
-             <input
-               id="sessionId"
-               type="text"
-               value={currentSessionId || ''}
-               readOnly // Make it read-only as user doesn't input it directly
-             />
-           </div>
-
-          <div>
-            <label htmlFor="directoryPath">Directory Path (Optional for subsequent prompts):</label>
-            <input
-              id="directoryPath"
-              type="text"
-              value={directoryPath}
-              onChange={(e) => setDirectoryPath(e.target.value)}
-              disabled={isLoading}
-              placeholder="e.g., C:\Users\YourName\Documents\MyDocs"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="currentPrompt">Your Prompt:</label>
-            <textarea
-              id="currentPrompt"
-              value={currentPrompt}
-              onChange={(e) => setCurrentPrompt(e.target.value)}
-              disabled={isLoading}
-              rows={4}
-              placeholder={historyDisplay.length > 0 ? "Continue the conversation..." : "Enter your prompt here..."}
-            ></textarea>
-          </div>
-
-          <button type="submit" disabled={isLoading || (!currentPrompt.trim() && !directoryPath.trim() && historyDisplay.length === 0)}>
-            {isLoading ? 'Processing...' : 'Send to Gemini'}
-          </button>
-        </form>
-
-        {/* Display loading state */}
-        {isLoading && (
-          <div style={{ color: 'blue', marginBottom: '15px' }}>Loading...</div>
-        )}
-
-        {/* Display error message */}
-        {error && (
-          <div className="error-message">
-            <strong>Error:</strong> {error}
-          </div>
-        )}
 
         {/* Display conversation history */}
         <div className="conversation-history">
@@ -335,19 +283,64 @@ const App: React.FC = () => {
                } else {
                   // If it's the first part but doesn't look like file content, render it normally
                   return (
-                       <p key={partIndex}>{part.text}</p>
+                       <ReactMarkdown key={partIndex}remarkPlugins={[remarkGfm]}>{part.text}</ReactMarkdown>
                    );
                }
           } else {
               // If it's NOT the first part of a user turn, or it's a model turn
               // This part should contain the user's actual typed prompt or model's response
               return (
-                  <p key={partIndex}>{part.text}</p> // Render the text normally
+                  <ReactMarkdown key={partIndex}remarkPlugins={[remarkGfm]}>{part.text}</ReactMarkdown> // Render the text normally
               );
           }
       })}
     </div>
   ))}
+        </div>
+        <div className="bottom-input-area">
+        {/* Display error message */}
+        {error && (
+          <div className="error-message">
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="input-form">
+           {/* Session ID input is now hidden */}
+          <div style={{display: 'none'}}>
+             <label htmlFor="sessionId">Session ID:</label>
+             <input
+               id="sessionId"
+               type="text"
+               value={currentSessionId || ''}
+               readOnly // Make it read-only as user doesn't input it directly
+             />
+           </div>
+            <div className="chat-input-wrapper">
+            <textarea
+              id="directoryPath"
+              value={directoryPath}
+              onChange={(e) => setDirectoryPath(e.target.value)}
+              disabled={isLoading}
+              placeholder="Directory path (optional)"
+              className="directory-input"
+            />
+            <div className="textarea-button-container">
+            <textarea
+              id="currentPrompt"
+              value={currentPrompt}
+              onChange={(e) => setCurrentPrompt(e.target.value)}
+              disabled={isLoading}
+              rows={2}
+              placeholder={historyDisplay.length > 0 ? "Continue the conversation..." : "Enter your prompt here..."}
+              className="prompt-input"
+            ></textarea>
+            <button type="submit" disabled={isLoading || (!currentPrompt.trim() && !directoryPath.trim() && historyDisplay.length === 0)}
+            className="send-button">
+            {isLoading ? '...' : '→'}
+          </button>
+            </div>
+            </div>
+        </form>
         </div>
 
       </div>

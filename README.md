@@ -1,54 +1,50 @@
-# React + TypeScript + Vite
+# Gemini AI File/Directory Processor Frontend (React TypeScript)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend application built with React and TypeScript, designed to provide a user interface for interacting with the local Azure Functions backend that processes files/directories using the Google Gemini AI API.
 
-Currently, two official plugins are available:
+**⚠️ SECURITY WARNING ⚠️**
+**This frontend should NEVER be deployed to a production environment or hosted anywhere accessible to the public internet while configured to point to that insecure backend.**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## Expanding the ESLint configuration
+*   User interface to input a local directory path and a prompt.
+*   Displays conversation history with the Gemini API.
+*   Sidebar to list previous conversations.
+*   Ability to load and continue previous conversations by clicking on them in the sidebar.
+*   Automatic management of session IDs for continuing conversations.
+*   Uses Markdown rendering (`react-markdown`) to display formatted responses from Gemini.
+*   Stores the list of conversation IDs and titles locally in the browser's `localStorage` for persistence between browser sessions.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Prerequisites
+*   **Node.js:** Version 14 or later is recommended.
+*   **A package manager:** npm, yarn, or pnpm.
+*   **The backend Azure Functions project running locally:** Ensure your backend is started (`func start`) and listening on `http://localhost:7071` (or the port indicated in its output) and is configured with your Gemini API key and CORS settings to allow requests from your frontend's development port
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## Setup and Installation
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/Akmalfazili/my-gemini-frontend.git
+    cd <project_folder> # Navigate to the project folder 
+    ```
+2.  **Install dependencies:**
+    ```bash
+    # Using npm
+    npm install
+    ```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Running Locally
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+1.  **Ensure your backend Azure Function is running** in a separate terminal:
+    ```bash
+    cd <path_to_backend_project>
+    func start
+    ```
+2.  **Open your terminal** in the frontend project directory.
+3.  **Start the React development server:**
+    ```bash
+    # Using npm
+    npm run dev
+    ```
+4.  The server will start, and you will see a local URL.
+5.  **Open this URL** in your web browser.
